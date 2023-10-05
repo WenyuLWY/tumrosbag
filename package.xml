@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>tumrosbag</name>
+  <version>0.0.0</version>
+  <description>The tumrosbag package</description>
+  <maintainer email="wenyu.li.cn@gmail.com">wenyu</maintainer>
+  <license>TODO</license>
+  <url type="website">http://wenyulwy.github.io</url>
+  <author email="wenyu.li.cn@gmail.com">wenyu</author>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>pcl_ros</build_depend>
+  <build_depend>rosbag</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>image_transport</build_depend>
+
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>pcl_ros</exec_depend>
+  <exec_depend>rosbag</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+
+  <export>
+  </export>
+</package>

@@ -1,0 +1,11 @@
+<launch>
+    <arg name="dataset_folder" value="/home/Downloads/tum/" />
+    <arg name="sequence_name" value="rgbd_dataset_freiburg3_walking_xyz" />
+    <arg name="rosbag_path" value="/home/Downloads/tum/rosbag_mmsslam/" />
+
+    <node name="generate_rosbag" pkg="tumrosbag" type="generate_rosbag" output="screen">
+        <param name="dataset_folder"  value="$(arg dataset_folder)" />
+        <param name="sequence_name"  value="$(arg sequence_name)" />
+        <param name="rosbag_path"  value="$(arg rosbag_path)" />
+    </node>
+</launch>
