@@ -33,8 +33,15 @@ int main(int argc, char** argv)
     std::string image_directory = dataset_folder+sequence_name+"/rgb/";
     std::string depth_directory = dataset_folder+sequence_name+"/depth/";
     std::string rosbagfile_path = rosbag_path+sequence_name+".bag";
+    std::string associations_file = dataset_folder + sequence_name + "/associations.txt";
 
-    std::cout << rosbagfile_path << std::endl;
+    std::ifstream associations_stream(associations_file);
+    if (!associations_stream.is_open()) {
+        ROS_ERROR("Failed to open associations.txt");
+        return -1;
+    }
+
+    
 
     
     
@@ -92,116 +99,62 @@ int main(int argc, char** argv)
     bag.write("tf_static", ros::Time::now(), tf_msg);
 
 
-    // write rgb image
-    boost::filesystem::path image_dir(image_directory);
-    std::vector<std::string> image_files;
-    for (boost::filesystem::directory_entry& entry : boost::filesystem::directory_iterator(image_dir)) {
-        if (boost::filesystem::is_regular_file(entry) && entry.path().extension() == ".png") {
-            image_files.push_back(entry.path().string());
-        }
-    }
-    int total_images = image_files.size();
-    int images_processed = 0;
-    cv::Mat rgb_image;
-    sensor_msgs::ImagePtr rgb_msg;
-    for (const std::string& image_path : image_files) {
-        std::string image_filename = boost::filesystem::path(image_path).stem().string();
-        double timestamp = std::stod(image_filename);
-        rgb_image = cv::imread(image_path, cv::IMREAD_COLOR);
-        rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", rgb_image).toImageMsg();
-        rgb_msg->header.stamp = ros::Time(timestamp);
-        rgb_msg->header.frame_id = "/camera_color_optical_frame";
-        bag.write("/camera/color/image_raw", ros::Time(timestamp), *rgb_msg);
-        std::cout << "Progress: " << images_processed << "/" << total_images << std::endl;
-        ros::Duration(0.01).sleep();
-        images_processed++;
-    }
-
-    // write pointcloud
-    boost::filesystem::path depth_dir(depth_directory);
-    std::vector<std::string> depth_files;
-    for (boost::filesystem::directory_entry& entry : boost::filesystem::directory_iterator(depth_dir)) {
-        if (boost::filesystem::is_regular_file(entry) && entry.path().extension() == ".png") {
-            depth_files.push_back(entry.path().string());
-        }
-    }
-    int total_depth = depth_files.size();
-    int depth_processed = 0;
-    cv::Mat depth_image;
-    sensor_msgs::PointCloud2 cloud_msg;
-    //freiburg3
     float fx = 535.4;
     float fy = 539.2;
     float cx = 320.1;
     float cy = 247.6;
     float depth_scale = 5000.0; 
-    for (const std::string& depth_path : depth_files) {
-        std::string depth_filename = boost::filesystem::path(depth_path).stem().string();
-        double timestamp = std::stod(depth_filename);
-        depth_image = cv::imread(depth_path, cv::IMREAD_UNCHANGED);
+
+    int processed = 0;
+    std::string line;
+    while (std::getline(associations_stream, line)) {
+        std::istringstream iss(line);
+        double rgb_timestamp, depth_timestamp;
+        std::string rgb_file, depth_file;
+        if (!(iss >> rgb_timestamp >> rgb_file >> depth_timestamp >> depth_file)) {
+            ROS_WARN("Error parsing associations.txt line: %s", line.c_str());
+            continue;
+        }
+        // Process RGB image
+        std::string rgb_image_path = dataset_folder + sequence_name + "/" + rgb_file;
+        cv::Mat rgb_image = cv::imread(rgb_image_path, cv::IMREAD_COLOR);
+        sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", rgb_image).toImageMsg();
+        rgb_msg->header.stamp = ros::Time(rgb_timestamp);
+        rgb_msg->header.frame_id = "/camera_color_optical_frame";
+        bag.write("/camera/color/image_raw", ros::Time(rgb_timestamp), *rgb_msg);
+
+        // Process depth image
+        std::string depth_image_path = dataset_folder + sequence_name + "/" + depth_file;
+        cv::Mat depth_image = cv::imread(depth_image_path, cv::IMREAD_UNCHANGED);
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+        sensor_msgs::PointCloud2 cloud_msg;
         for (int v = 0; v < depth_image.rows; v++) {
             for (int u = 0; u < depth_image.cols; u++) {
                 float Z = depth_image.at<uint16_t>(v, u);
-               
                 if (Z > 0) {
                     Z = Z /depth_scale;
                     pcl::PointXYZRGB point;
                     point.x = (u - cx) * Z / fx;
                     point.y = (v - cy) * Z / fy;
                     point.z = Z;
-                    
-                    point.r = 255;
-                    point.g = 0;
-                    point.b = 0;
+                    cv::Vec3b rgb_pixel = rgb_image.at<cv::Vec3b>(v, u);
+                    point.r = rgb_pixel[2];
+                    point.g = rgb_pixel[1];
+                    point.b = rgb_pixel[0];
                     cloud->points.push_back(point);
                 }
             }
         }
-        
         pcl::toROSMsg(*cloud, cloud_msg);
-        cloud_msg.header.stamp = ros::Time(timestamp);
+        cloud_msg.header.stamp = ros::Time(depth_timestamp);
         cloud_msg.header.frame_id = "/camera_depth_optical_frame";
-        bag.write("/camera/depth/color/points", ros::Time(timestamp), cloud_msg);
-        std::cout << "Progress: " << depth_processed << "/" << total_depth << std::endl;
+        bag.write("/camera/depth/color/points", ros::Time(depth_timestamp), cloud_msg);
+
+        processed++;
+
+        std::cout << "Progress: " << processed << std::endl;
         ros::Duration(0.01).sleep();
-        depth_processed++;
     }
-
-
-    /*
-    RGB:
-    seq ??
-    frame id        camera_color_optical_frame
-    encoding        "rgb8"
-    is_bigendian: 0
-
-
-    /camera/depth/color/points   2603 msgs    : sensor_msgs/PointCloud2
-        frame id        camera_depth_optical_frame
-        height: 1       width: xxxx
-
-    /tf_static                      1 msg     : tf2_msgs/TFMessage
-            header: 
-            seq: 0
-            stamp: 
-                secs: 1611576912
-                nsecs:  65503599
-            frame_id: "camera_color_frame"
-            child_frame_id: "camera_color_optical_frame"
-            transform: 
-            translation: 
-                x: 0.0
-                y: -0.0
-                z: -0.0
-            rotation: 
-                x: -0.5
-                y: 0.5
-                z: -0.5
-                w: 0.5    
-
-    */ 
-    
 
     
     bag.close();

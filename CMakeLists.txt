@@ -6,9 +6,13 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rosbag
-  sensor_msgs
   cv_bridge
   image_transport
+  
+
+  sensor_msgs
+  geometry_msgs
+  tf2_msgs
 )
 
 find_package(OpenCV REQUIRED)
@@ -17,7 +21,7 @@ find_package(PCL REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES my_image_converter
-  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs pcl_ros rosbag cv_bridge image_transport
+  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs pcl_ros rosbag cv_bridge image_transport 
 )
 
 include_directories(
@@ -29,3 +33,6 @@ include_directories(
 
 add_executable(generate_rosbag src/generate_rosbag.cpp)
 target_link_libraries(generate_rosbag ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(generate_new src/generate_new.cpp)
+target_link_libraries(generate_new ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${PCL_LIBRARIES})
